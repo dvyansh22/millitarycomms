@@ -1,0 +1,32 @@
+python3 - <<'PY'
+import os
+import time
+
+FB = "/dev/fb1"
+WIDTH = 480
+HEIGHT = 320
+
+# RGB565 colors, little-endian
+colors = {
+    "RED":   bytes([0x00, 0xF8]),
+    "GREEN": bytes([0xE0, 0x07]),
+    "BLUE":  bytes([0x1F, 0x00]),
+    "WHITE": bytes([0xFF, 0xFF]),
+    "BLACK": bytes([0x00, 0x00]),
+}
+
+print("Opening", FB)
+
+with open(FB, "wb") as f:
+    for name, pixel in colors.items():
+        print("Displaying:", name)
+
+        frame = pixel * (WIDTH * HEIGHT)
+        f.seek(0)
+        f.write(frame)
+        f.flush()
+
+        time.sleep(3)
+
+print("Test finished.")
+PY
