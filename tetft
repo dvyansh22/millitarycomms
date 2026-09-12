@@ -1,32 +1,73 @@
-python3 - <<'PY'
+from PIL import Image
 import os
-import time
+import mmap
+import fcntl
+import struct
 
 FB = "/dev/fb1"
-WIDTH = 480
-HEIGHT = 320
+IMAGE = "/home/raspdixit/map.jpg"
 
-# RGB565 colors, little-endian
-colors = {
-    "RED":   bytes([0x00, 0xF8]),
-    "GREEN": bytes([0xE0, 0x07]),
-    "BLUE":  bytes([0x1F, 0x00]),
-    "WHITE": bytes([0xFF, 0xFF]),
-    "BLACK": bytes([0x00, 0x00]),
-}
+# Framebuffer ioctls
+FBIOGET_VSCREENINFO = 0x4600
+FBIOGET_FSCREENINFO = 0x4602
 
-print("Opening", FB)
+# Open framebuffer
+fb = os.open(FB, os.O_RDWR)
 
-with open(FB, "wb") as f:
-    for name, pixel in colors.items():
-        print("Displaying:", name)
+# Get framebuffer information
+vinfo = bytearray(160)
+finfo = bytearray(256)
 
-        frame = pixel * (WIDTH * HEIGHT)
-        f.seek(0)
-        f.write(frame)
-        f.flush()
+fcntl.ioctl(fb, FBIOGET_VSCREENINFO, vinfo)
+fcntl.ioctl(fb, FBIOGET_FSCREENINFO, finfo)
 
-        time.sleep(3)
+xres = struct.unpack_from("I", vinfo, 0)[0]
+yres = struct.unpack_from("I", vinfo, 4)[0]
+bits_per_pixel = struct.unpack_from("I", vinfo, 24)[0]
+line_length = struct.unpack_from("I", finfo, 44)[0]
 
-print("Test finished.")
-PY
+print("Framebuffer:", FB)
+print("Resolution:", xres, "x", yres)
+print("Bits per pixel:", bits_per_pixel)
+print("Line length:", line_length)
+
+if bits_per_pixel != 16:
+    raise RuntimeError("Expected 16-bit framebuffer")
+
+# Load map
+img = Image.open(IMAGE).convert("RGB")
+img = img.resize((xres, yres), Image.Resampling.LANCZOS)
+
+# Convert RGB888 -> RGB565
+buffer = bytearray(line_length * yres)
+
+for y in range(yres):
+    for x in range(xres):
+        r, g, b = img.getpixel((x, y))
+
+        rgb565 = (
+            ((r >> 3) << 11) |
+            ((g >> 2) << 5) |
+            (b >> 3)
+        )
+
+        offset = y * line_length + x * 2
+
+        buffer[offset] = rgb565 & 0xFF
+        buffer[offset + 1] = (rgb565 >> 8) & 0xFF
+
+# Write framebuffer
+mm = mmap.mmap(
+    fb,
+    line_length * yres,
+    mmap.MAP_SHARED,
+    mmap.PROT_WRITE | mmap.PROT_READ
+)
+
+mm.seek(0)
+mm.write(buffer)
+mm.flush()
+mm.close()
+os.close(fb)
+
+print("MAP DISPLAYED ON TFT")
