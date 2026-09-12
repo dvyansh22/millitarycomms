@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CITADEL / Field telemetry monitor</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="monitor.css">
+  <link rel="stylesheet" href="map-layout.css">
+</head>
+<body>
+  <header class="masthead">
+    <a class="wordmark" href="#overview">CITADEL<span>FIELD TELEMETRY MONITOR</span></a>
+    <div class="header-right"><span id="connection" class="connection">CONNECTING</span><time id="clock"></time></div>
+  </header>
+  <aside class="sidebar">
+    <nav aria-label="Main navigation">
+      <a class="selected" href="#overview" data-page="overview"><span class="nav-icon">▦</span>Overview</a>
+      <a href="#map" data-page="map"><span class="nav-icon">▧</span>Site map</a>
+      <a href="#devices" data-page="devices"><span class="nav-icon">⌘</span>Devices</a>
+      <a href="#packets" data-page="packets"><span class="nav-icon">≋</span>Command log</a>
+      <a href="#incidents" data-page="incidents"><span class="nav-icon">△</span>Threat reports</a>
+      <a href="#audit" data-page="audit"><span class="nav-icon">▤</span>Vitals</a>
+    </nav>
+    <div class="sidebar-foot"><span class="mini-logo">C / S</span><div>CITADEL v0.1</div><div>LOCAL MONITOR</div><small>Backend records only</small></div>
+  </aside>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">WORKSPACE / TELEMETRY</p><h1 id="page-title">Field overview</h1></div><div class="toolbar"><span id="updated">Not synchronized</span><button id="refresh" aria-label="Refresh data"><span>↻</span> Refresh</button></div></div>
+    <div id="notice" class="notice" role="status"><span class="notice-dot"></span><span id="notice-text">Connecting to the backend…</span></div>
+    <div class="dashboard" id="dashboard">
+      <section class="panel site-map" data-section="map">
+        <div class="panel-head"><div><h2>SITE MAP</h2><p>Relative coordinates · satellite reference</p></div><select id="map-layer" aria-label="Map appearance"><option value="satellite">Satellite</option><option value="grayscale">Grayscale</option></select></div>
+        <div class="map-viewport" id="map-viewport">
+          <img id="site-image" src="assets/enhanced_image_high.jpg" alt="Satellite landscape from the original project" draggable="false">
+          <div id="node-overlay" class="node-overlay" aria-label="Device locations"></div>
+          <div class="map-grid" aria-hidden="true"></div>
+          <div class="map-controls"><button id="map-in" aria-label="Zoom in">+</button><button id="map-out" aria-label="Zoom out">−</button></div>
+          <button id="map-reset" class="map-reset">Fit image</button>
+          <span id="map-zoom" class="map-zoom" aria-live="polite">1×</span>
+          <span id="map-caption" class="map-caption">REFERENCE IMAGE · NO LIVE POSITIONS</span>
+        </div>
+      </section>
+      <section class="panel inventory" data-section="devices">
+        <div class="panel-head"><div><h2>DEVICE TELEMETRY</h2><p>Latest position, heart rate and command</p></div><span class="count" id="device-count">— DEVICES</span></div>
+        <div class="registry-summary"><span><i class="dot green"></i>Located <b id="trusted">—</b></span><span><i class="dot amber"></i>With HR <b id="pending">—</b></span><span><i class="dot red"></i>No GPS <b id="revoked">—</b></span></div>
+        <div class="registry-area" id="device-list"><div class="empty"><span class="empty-icon">⌘</span><strong>Waiting for device data</strong><p>Received devices will appear automatically.</p></div></div>
+        <div class="panel-foot"><span><i class="dot dim"></i> Last received time is shown for each device</span><span id="device-footer">BACKEND TELEMETRY</span></div>
+      </section>
+      <section class="panel packet-panel" data-section="packets">
+        <div class="panel-head"><div><h2>COMMAND LOG</h2><p>Latest 20 commands retained by the backend</p></div><select id="packet-filter" aria-label="Filter commands by device"><option value="ALL">All devices</option></select></div>
+        <div class="table-wrap packet-table"><table><thead><tr><th>TIME</th><th>DEVICE</th><th colspan="2">COMMAND</th></tr></thead><tbody id="packet-rows"><tr><td colspan="4" class="table-empty">Waiting for command history.</td></tr></tbody></table></div>
+        <div class="panel-foot"><span id="packet-total">No records loaded</span><span>RECEIVED COMMANDS</span></div>
+      </section>
+      <section class="panel incidents" data-section="incidents">
+        <div class="panel-head"><div><h2>THREAT REPORTS</h2><p>Reported enemy coordinates and source devices</p></div><span class="count" id="incident-count">—</span></div>
+        <div id="incident-list" class="incident-list"><div class="empty"><span class="empty-icon">△</span><strong>No events loaded</strong><p>Reports include source device, coordinates and time.</p></div></div>
+        <div class="panel-foot"><span>Recent recorded events</span></div>
+      </section>
+      <section class="panel status-panel" data-section="overview">
+        <div class="panel-head"><div><h2>TELEMETRY SUMMARY</h2><p>Latest snapshot from connected backend</p></div><span class="pill neutral" id="status-tag">AWAITING DATA</span></div>
+        <div class="metrics"><div><span class="metric-symbol green-text">⌘</span><div><b id="metric-devices">—</b><small>Devices received</small></div></div><div><span class="metric-symbol green-text">✓</span><div><b id="accepted">—</b><small>Threat reports</small></div></div><div><span class="metric-symbol red-text">⊘</span><div><b id="rejected">—</b><small>Stored commands</small></div></div><div><span class="metric-symbol amber-text">↺</span><div><b id="replays">—</b><small>HR readings</small></div></div></div>
+        <div class="rate-line"><span>Devices with coordinates</span><strong id="rate">—</strong></div><progress id="rate-bar" max="100" value="0" aria-label="Devices with coordinates"></progress>
+        <div class="status-cells"><div><span class="cell-icon">◷</span><div><small>LOCAL TIME</small><b id="local-time">—</b></div></div><div><span class="cell-icon">▦</span><div><small>DATE</small><b id="local-date">—</b></div></div><div><span class="cell-icon">⇄</span><div><small>MONITOR</small><b id="monitor-status">Connecting</b></div></div></div>
+      </section>
+      <section class="panel ledger-panel" data-section="audit">
+        <div class="panel-head"><div><h2>VITALS</h2><p>Latest heart-rate readings per device</p></div><span class="pill neutral" id="ledger-state">WAITING</span></div>
+        <div id="validators" class="validator-list"><span>Waiting for vitals</span></div>
+        <div class="table-wrap ledger-table"><table><thead><tr><th>DEVICE</th><th>HR / BPM</th><th>THREATS</th><th>RECEIVED</th></tr></thead><tbody id="ledger-rows"><tr><td colspan="4" class="table-empty">Waiting for vitals.</td></tr></tbody></table></div>
+        <div class="panel-foot"><span id="ledger-check">No readings received</span><span>REPORTED READINGS</span></div>
+      </section>
+      <section class="panel notes-panel" data-section="overview">
+        <div class="panel-head"><div><h2>OPERATOR NOTE</h2><p>Saved on this browser</p></div></div>
+        <label class="sr-only" for="operator-note">Operator note</label><textarea id="operator-note" placeholder="Add a handover note…"></textarea><span id="note-status" class="note-status">No note saved</span>
+        <div class="source-note"><strong>DATA PROVENANCE</strong><p>Values come directly from the backend. Missing readings are shown as unavailable.</p><p>The map plots relative coordinates over a reference image; the image is not geographically calibrated.</p></div>
+      </section>
+    </div>
+    <footer class="workspace-foot"><span><i class="dot green"></i> CITADEL / TELEMETRY WORKSPACE</span><span>All times shown in local time · <span id="poll-state">automatic refresh</span></span></footer>
+  </main>
+  <dialog id="detail-dialog"><div class="dialog-head"><span class="eyebrow">RECORD DETAILS</span><button id="close-detail" aria-label="Close record">×</button></div><h2 id="detail-title"></h2><dl id="detail-fields"></dl></dialog>
+  <script type="module" src="monitor.js"></script>
+</body>
+</html>
