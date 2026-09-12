@@ -1,72 +1,62 @@
 from PIL import Image
 import os
 import mmap
-import fcntl
-import struct
 
 FB = "/dev/fb1"
+WIDTH = 480
+HEIGHT = 320
 IMAGE = "/home/raspdixit/map.jpg"
-
-# Framebuffer ioctls
-FBIOGET_VSCREENINFO = 0x4600
-FBIOGET_FSCREENINFO = 0x4602
 
 # Open framebuffer
 fb = os.open(FB, os.O_RDWR)
 
-# Get framebuffer information
-vinfo = bytearray(160)
-finfo = bytearray(256)
-
-fcntl.ioctl(fb, FBIOGET_VSCREENINFO, vinfo)
-fcntl.ioctl(fb, FBIOGET_FSCREENINFO, finfo)
-
-xres = struct.unpack_from("I", vinfo, 0)[0]
-yres = struct.unpack_from("I", vinfo, 4)[0]
-bits_per_pixel = struct.unpack_from("I", vinfo, 24)[0]
-line_length = struct.unpack_from("I", finfo, 44)[0]
+# For 480x320 RGB565:
+# 2 bytes per pixel
+LINE_LENGTH = WIDTH * 2
+FB_SIZE = LINE_LENGTH * HEIGHT
 
 print("Framebuffer:", FB)
-print("Resolution:", xres, "x", yres)
-print("Bits per pixel:", bits_per_pixel)
-print("Line length:", line_length)
+print("Resolution:", WIDTH, "x", HEIGHT)
+print("Bits per pixel: 16")
+print("Line length:", LINE_LENGTH)
 
-if bits_per_pixel != 16:
-    raise RuntimeError("Expected 16-bit framebuffer")
-
-# Load map
+# Load image
 img = Image.open(IMAGE).convert("RGB")
-img = img.resize((xres, yres), Image.Resampling.LANCZOS)
+img = img.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
 
-# Convert RGB888 -> RGB565
-buffer = bytearray(line_length * yres)
+# Create RGB565 framebuffer data
+buffer = bytearray(FB_SIZE)
 
-for y in range(yres):
-    for x in range(xres):
+for y in range(HEIGHT):
+    for x in range(WIDTH):
+
         r, g, b = img.getpixel((x, y))
 
+        # RGB888 -> RGB565
         rgb565 = (
             ((r >> 3) << 11) |
             ((g >> 2) << 5) |
             (b >> 3)
         )
 
-        offset = y * line_length + x * 2
+        offset = y * LINE_LENGTH + x * 2
 
         buffer[offset] = rgb565 & 0xFF
         buffer[offset + 1] = (rgb565 >> 8) & 0xFF
 
-# Write framebuffer
+# Map framebuffer into memory
 mm = mmap.mmap(
     fb,
-    line_length * yres,
+    FB_SIZE,
     mmap.MAP_SHARED,
-    mmap.PROT_WRITE | mmap.PROT_READ
+    mmap.PROT_READ | mmap.PROT_WRITE
 )
 
+# Write image
 mm.seek(0)
 mm.write(buffer)
 mm.flush()
+
 mm.close()
 os.close(fb)
 
