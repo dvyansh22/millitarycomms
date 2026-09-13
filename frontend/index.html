@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CITADEL / Field telemetry monitor</title>
+  <title>noKIA / Field telemetry monitor</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="monitor.css">
   <link rel="stylesheet" href="map-layout.css">
 </head>
 <body>
   <header class="masthead">
-    <a class="wordmark" href="#overview">CITADEL<span>FIELD TELEMETRY MONITOR</span></a>
-    <div class="header-right"><span id="connection" class="connection">CONNECTING</span><time id="clock"></time></div>
+    <a class="wordmark" href="#overview">noKIA<span>FIELD TELEMETRY MONITOR</span></a>
+    <div class="header-right"><select id="data-mode" aria-label="Data source"><option value="hardware">Hardware</option><option value="simulation">Simulation · E1 + E2</option></select><span id="connection" class="connection">CONNECTING</span><time id="clock"></time></div>
   </header>
   <aside class="sidebar">
     <nav aria-label="Main navigation">
@@ -22,7 +22,7 @@
       <a href="#incidents" data-page="incidents"><span class="nav-icon">△</span>Threat reports</a>
       <a href="#audit" data-page="audit"><span class="nav-icon">▤</span>Vitals</a>
     </nav>
-    <div class="sidebar-foot"><span class="mini-logo">C / S</span><div>CITADEL v0.1</div><div>LOCAL MONITOR</div><small>Backend records only</small></div>
+    <div class="sidebar-foot"><span class="mini-logo">noKIA</span><div>noKIA v0.1</div><div>LOCAL MONITOR</div><small>Backend records only</small></div>
   </aside>
   <main>
     <div class="page-heading"><div><p class="eyebrow">WORKSPACE / TELEMETRY</p><h1 id="page-title">Field overview</h1></div><div class="toolbar"><span id="updated">Not synchronized</span><button id="refresh" aria-label="Refresh data"><span>↻</span> Refresh</button></div></div>
@@ -74,7 +74,7 @@
         <div class="source-note"><strong>DATA PROVENANCE</strong><p>Values come directly from the backend. Missing readings are shown as unavailable.</p><p>The map plots relative coordinates over a reference image; the image is not geographically calibrated.</p></div>
       </section>
     </div>
-    <footer class="workspace-foot"><span><i class="dot green"></i> CITADEL / TELEMETRY WORKSPACE</span><span>All times shown in local time · <span id="poll-state">automatic refresh</span></span></footer>
+    <footer class="workspace-foot"><span><i class="dot green"></i> noKIA / TELEMETRY WORKSPACE</span><span>All times shown in local time · <span id="poll-state">automatic refresh</span></span></footer>
   </main>
   <dialog id="detail-dialog"><div class="dialog-head"><span class="eyebrow">RECORD DETAILS</span><button id="close-detail" aria-label="Close record">×</button></div><h2 id="detail-title"></h2><dl id="detail-fields"></dl></dialog>
   <script type="module" src="monitor.js"></script>

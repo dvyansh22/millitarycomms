@@ -1,6 +1,29 @@
+import { createEnemyMap } from './enemy-map.mjs';
+import { createSimulationSnapshot } from './simulation.mjs';
 const $ = id => document.getElementById(id);
 const labels = {overview:'Field overview',map:'Site map',devices:'Device telemetry',packets:'Command log',incidents:'Threat reports',audit:'Vitals'};
 let snapshot = null, refreshing = false;
+const simulationMode = new URLSearchParams(location.search).get('simulation') === '1';
+$('data-mode').value = simulationMode ? 'simulation' : 'hardware';
+$('data-mode').addEventListener('change', () => {
+  const url = new URL(location.href);
+  if ($('data-mode').value === 'simulation') url.searchParams.set('simulation', '1');
+  else url.searchParams.delete('simulation');
+  location.assign(url.href);
+});
+function refreshSimulation() {
+  render(createSimulationSnapshot());
+  $('connection').textContent = 'SIMULATION';
+  $('connection').className = 'connection';
+  $('monitor-status').textContent = 'Simulated readings';
+  $('status-tag').textContent = 'SIMULATION';
+  $('updated').textContent = 'Demo updated ' + new Date().toLocaleTimeString('en-GB');
+  $('poll-state').textContent = 'simulation every 3 seconds';
+  $('notice-text').textContent = 'SIMULATION · Exactly two enemies: E1 and E2. All readings in this mode are synthetic.';
+  document.querySelector('.source-note p').textContent = 'Simulation readings are generated in this browser. Select Hardware to view received backend data.';
+  document.querySelector('.sidebar-foot small').textContent = 'Simulated readings';
+}
+
 const number = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 const time = value => number(value) && Number(value)>0 ? new Date(Number(value)*1000).toLocaleString('en-GB') : 'Not received';
 const coordinate = value => number(value) ? Number(value).toFixed(5) : 'Unavailable';
@@ -13,12 +36,29 @@ function empty(root,title,description){const e=make('div',undefined,'empty');e.a
 function tableEmpty(root,text){const row=make('tr'),cell=make('td',text,'table-empty');cell.colSpan=4;row.append(cell);root.replaceChildren(row);}
 function setPage(){const key=location.hash.slice(1);const page=Object.hasOwn(labels,key)?key:'overview';$('page-title').textContent=labels[page];$('dashboard').classList.toggle('focused',page!=='overview');document.querySelectorAll('[data-page]').forEach(e=>{const active=e.dataset.page===page;e.classList.toggle('selected',active);if(active)e.setAttribute('aria-current','page');else e.removeAttribute('aria-current');});document.querySelectorAll('[data-section]').forEach(e=>e.hidden=page!=='overview'&&e.dataset.section!==page);}
 function renderDevices(nodes){const root=$('device-list');root.replaceChildren();$('device-count').textContent=nodes.length+' DEVICES';if(!nodes.length){empty(root,'Waiting for devices','Device readings appear automatically when the backend receives data.');return;}nodes.forEach(n=>{const row=make('article',undefined,'device-row'),body=make('div',undefined,'device-body'),side=make('div',undefined,'device-side');body.append(make('strong',n.id),make('p','Received: '+time(n.timestamp)),make('p',coordinate(n.lat)+', '+coordinate(n.lon),'fingerprint'),make('p','HR '+reading(n.hr)+' BPM · Threats '+(n.enemy_count??0)),make('p','Command: '+(n.cmd??'None')));const button=make('button','›');button.setAttribute('aria-label','Inspect device '+n.id);button.addEventListener('click',()=>details('Device '+n.id,n));side.append(button);row.append(make('div',n.id,'device-glyph'),body,side);root.append(row);});}
-function renderMap(nodes,threats){const root=$('node-overlay');root.replaceChildren();const points=[...nodes.filter(hasGPS).map(n=>({record:n,label:n.id,threat:false})),...threats.filter(hasGPS).map(t=>({record:t,label:'E'+t.enemy_id+' · '+t.node_id,threat:true}))];if(!points.length){$('map-caption').textContent='REFERENCE IMAGE · WAITING FOR COORDINATES';return;}const lat=points.map(p=>Number(p.record.lat)),lon=points.map(p=>Number(p.record.lon)),minLat=Math.min(...lat),maxLat=Math.max(...lat),minLon=Math.min(...lon),maxLon=Math.max(...lon);const scale=(v,min,max)=>max===min?50:12+76*(v-min)/(max-min);points.forEach(p=>{const marker=make('button',undefined,'map-marker'+(p.threat?' threat':''));marker.style.left=scale(Number(p.record.lon),minLon,maxLon)+'%';marker.style.top=(100-scale(Number(p.record.lat),minLat,maxLat))+'%';marker.append(make('span',p.label));marker.title=coordinate(p.record.lat)+', '+coordinate(p.record.lon);marker.setAttribute('aria-label','Inspect '+p.label);marker.addEventListener('click',()=>details(p.label,p.record));root.append(marker);});$('map-caption').textContent='RELATIVE GPS POSITIONS · IMAGE NOT GEOREFERENCED';}
-function renderLogs(){const logs=(snapshot?.logs||[]).filter(l=>$('packet-filter').value==='ALL'||l.id===$('packet-filter').value).slice().reverse(),root=$('packet-rows');root.replaceChildren();$('packet-total').textContent=logs.length+' stored commands';if(!logs.length){tableEmpty(root,'No commands recorded for this selection.');return;}logs.forEach(l=>{const row=make('tr'),cmd=make('td',l.cmd);cmd.colSpan=2;row.append(make('td',time(l.time)),make('td',l.id),cmd);inspectable(row,'Command from '+l.id,l);root.append(row);});}
+const enemyMap = createEnemyMap($('node-overlay'), details);
+function renderMap(nodes, threats) {
+  enemyMap.update(threats);
+  $('map-caption').textContent = 'RELATIVE GPS POSITIONS · IMAGE NOT GEOREFERENCED';
+}
+
+function renderLogs() {
+  const root = $('packet-rows');
+  root.replaceChildren();
+  ['hello', 'hello hello'].forEach(command => {
+    const row = make('tr');
+    const cell = make('td', command);
+    cell.colSpan = 2;
+    row.append(make('td', '—'), make('td', '—'), cell);
+    root.append(row);
+  });
+  $('packet-total').textContent = '2 display entries';
+}
+
 function renderThreats(threats){const root=$('incident-list');root.replaceChildren();$('incident-count').textContent=threats.length+' REPORTS';if(!threats.length){empty(root,'No threats reported','The backend has no current enemy reports.');return;}threats.slice().reverse().forEach(t=>{const item=make('article',undefined,'incident'),title=make('div',undefined,'incident-title');title.append(make('strong','Enemy '+t.enemy_id),make('time',time(t.time)));item.append(title,make('p',coordinate(t.lat)+', '+coordinate(t.lon)),make('small','SOURCE: '+t.node_id));inspectable(item,'Threat '+t.enemy_id,t);root.append(item);});}
 function renderVitals(vitals){const root=$('ledger-rows');root.replaceChildren();const count=vitals.filter(v=>number(v.hr)).length;$('ledger-state').textContent=count+' READINGS';$('ledger-state').className='pill '+(count?'good':'neutral');$('validators').replaceChildren(make('span','BPM = beats per minute · — = unavailable'));$('ledger-check').textContent=count+' of '+vitals.length+' devices have HR data';if(!vitals.length){tableEmpty(root,'No vitals received yet.');return;}vitals.forEach(v=>{const row=make('tr');row.append(make('td',v.id),make('td',reading(v.hr)),make('td',v.enemy_count??0),make('td',time(v.timestamp)));inspectable(row,'Vitals for '+v.id,v);root.append(row);});}
 function render(data){snapshot=data;const nodes=data.nodes,located=nodes.filter(hasGPS).length,hr=data.vitals.filter(v=>number(v.hr)).length;const counts={'metric-devices':data.summary.node_count,accepted:data.summary.enemy_count,rejected:data.summary.message_count,replays:hr,trusted:located,pending:hr,revoked:nodes.length-located};Object.entries(counts).forEach(([id,value])=>$(id).textContent=value??'—');const rate=nodes.length?Math.round(located/nodes.length*100):0;$('rate').textContent=nodes.length?rate+'%':'No devices';$('rate-bar').value=rate;const filter=$('packet-filter'),selected=filter.value;filter.replaceChildren(make('option','All devices'));filter.firstChild.value='ALL';[...new Set(data.logs.map(l=>l.id))].sort().forEach(id=>{const option=make('option',id);option.value=id;filter.append(option);});filter.value=[...filter.options].some(o=>o.value===selected)?selected:'ALL';renderDevices(nodes);renderMap(nodes,data.threats);renderLogs();renderThreats(data.threats);renderVitals(data.vitals);$('status-tag').textContent=nodes.length?'DATA RECEIVED':'WAITING FOR DATA';$('status-tag').className='pill '+(nodes.length?'good':'neutral');$('device-footer').textContent='LATEST DATA: '+time(data.summary.last_updated);}
-async function refresh(){if(refreshing)return;refreshing=true;$('refresh').disabled=true;const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);try{const base=location.protocol==='file:'?'http://127.0.0.1:5000':location.origin;const response=await fetch(base+'/dashboard',{signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error('Backend returned HTTP '+response.status);const data=await response.json();if(!data||!['nodes','vitals','threats','logs'].every(key=>Array.isArray(data[key]))||!data.summary)throw new Error('Unexpected dashboard response');render(data);$('connection').textContent='BACKEND CONNECTED';$('connection').className='connection ready';$('monitor-status').textContent='Backend reachable';$('updated').textContent='Synced '+new Date().toLocaleTimeString('en-GB');$('poll-state').textContent='refresh every 3 seconds';$('notice').classList.remove('error');$('notice-text').textContent=data.nodes.length?'Displaying backend readings. Last received time is shown per device.':'Backend connected. Waiting for hardware data; no sample readings are displayed.';}catch(error){$('connection').textContent='CONNECTION LOST';$('connection').className='connection error';$('monitor-status').textContent='Disconnected';$('status-tag').textContent=snapshot?'STALE DATA':'NO CONNECTION';$('status-tag').className='pill warn';$('poll-state').textContent='retrying every 3 seconds';$('notice').classList.add('error');$('notice-text').textContent=(snapshot?'Displayed readings are stale. ':'')+'Cannot load backend data. Open this dashboard at http://127.0.0.1:5000 with backend/app.py running. Retrying automatically.';}finally{clearTimeout(timeout);refreshing=false;$('refresh').disabled=false;}}
+async function refresh(){if(simulationMode){refreshSimulation();return;}if(refreshing)return;refreshing=true;$('refresh').disabled=true;const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);try{const base=location.protocol==='file:'?'http://127.0.0.1:5000':location.origin;const response=await fetch(base+'/dashboard',{signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error('Backend returned HTTP '+response.status);const data=await response.json();if(!data||!['nodes','vitals','threats','logs'].every(key=>Array.isArray(data[key]))||!data.summary)throw new Error('Unexpected dashboard response');render(data);$('connection').textContent='BACKEND CONNECTED';$('connection').className='connection ready';$('monitor-status').textContent='Backend reachable';$('updated').textContent='Synced '+new Date().toLocaleTimeString('en-GB');$('poll-state').textContent='refresh every 3 seconds';$('notice').classList.remove('error');$('notice-text').textContent=data.nodes.length?'Displaying backend readings. Last received time is shown per device.':'Backend connected. Waiting for hardware data; no sample readings are displayed.';}catch(error){$('connection').textContent='CONNECTION LOST';$('connection').className='connection error';$('monitor-status').textContent='Disconnected';$('status-tag').textContent=snapshot?'STALE DATA':'NO CONNECTION';$('status-tag').className='pill warn';$('poll-state').textContent='retrying every 3 seconds';$('notice').classList.add('error');$('notice-text').textContent=(snapshot?'Displayed readings are stale. ':'')+'Cannot load backend data. Open this dashboard at http://127.0.0.1:5000 with backend/app.py running. Retrying automatically.';}finally{clearTimeout(timeout);refreshing=false;$('refresh').disabled=false;}}
 function updateClock(){const now=new Date();$('clock').textContent=now.toLocaleString('en-GB');$('local-time').textContent=now.toLocaleTimeString('en-GB');$('local-date').textContent=now.toLocaleDateString('en-GB');}
 $('close-detail').addEventListener('click',()=>$('detail-dialog').close());$('refresh').addEventListener('click',refresh);$('packet-filter').addEventListener('change',renderLogs);
 try{const saved=localStorage.getItem('citadel-operator-note');if(saved){$('operator-note').value=saved;$('note-status').textContent='Saved on this browser';}}catch{}
